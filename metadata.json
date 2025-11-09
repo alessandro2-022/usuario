@@ -1,0 +1,7 @@
+{
+  "name": "Goly - Tecnologia e Mobilidade",
+  "description": "A ride-sharing and delivery application with an integrated AI assistant for finding information and places.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
