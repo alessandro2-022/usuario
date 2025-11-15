@@ -15,6 +15,9 @@ const MapView: React.FC<MapProps> = ({ userLocation, destinationLocation, driver
   const userMarkerInstance = useRef<any>(null);
   const destinationMarkerInstance = useRef<any>(null);
   const driverMarkerInstance = useRef<any>(null);
+  const driverToUserRoute = useRef<any>(null); // New ref for driver to user polyline
+  const userToDestinationRoute = useRef<any>(null); // New ref for user to destination polyline
+
 
   const defaultCenter: [number, number] = [-23.55052, -46.633301];
 
@@ -38,6 +41,7 @@ const MapView: React.FC<MapProps> = ({ userLocation, destinationLocation, driver
     if (mapInstance.current && userLocation) {
       const userLatLng: [number, number] = [userLocation.latitude, userLocation.longitude];
 
+      // Only set view to user if no other specific markers are being tracked for bounds
       if (!destinationLocation && !driverLocation) {
         mapInstance.current.setView(userLatLng, 15);
       }
@@ -100,7 +104,30 @@ const MapView: React.FC<MapProps> = ({ userLocation, destinationLocation, driver
         driverMarkerInstance.current = null;
     }
 
-    // Adjust map bounds to fit all markers
+    // Handle route polylines
+    // Clear existing routes
+    if (driverToUserRoute.current) {
+        mapInstance.current.removeLayer(driverToUserRoute.current);
+        driverToUserRoute.current = null;
+    }
+    if (userToDestinationRoute.current) {
+        mapInstance.current.removeLayer(userToDestinationRoute.current);
+        userToDestinationRoute.current = null;
+    }
+
+    if (userLocation && destinationLocation && driverLocation) {
+        const driverLatLng: [number, number] = [driverLocation.latitude, driverLocation.longitude];
+        const userLatLng: [number, number] = [userLocation.latitude, userLocation.longitude];
+        const destLatLng: [number, number] = [destinationLocation.latitude, destinationLocation.longitude];
+
+        // Draw driver to user route (dashed line)
+        driverToUserRoute.current = L.polyline([driverLatLng, userLatLng], {color: '#0D47A1', weight: 4, dashArray: '8, 8'}).addTo(mapInstance.current);
+        
+        // Draw user to destination route (solid line)
+        userToDestinationRoute.current = L.polyline([userLatLng, destLatLng], {color: '#0D47A1', weight: 4}).addTo(mapInstance.current);
+    }
+
+    // Adjust map bounds to fit all markers and route
     const markers = [userLocation, destinationLocation, driverLocation].filter(Boolean) as UserLocation[];
     if (markers.length > 1) {
         const bounds = L.latLngBounds(markers.map(m => [m.latitude, m.longitude]));

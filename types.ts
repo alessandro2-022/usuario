@@ -23,4 +23,4 @@ export interface DriverInfo {
     location: UserLocation;
 }
 
-export type TripState = 'IDLE' | 'SEARCHING' | 'DRIVER_FOUND';
+export type TripState = 'IDLE' | 'SEARCHING' | 'DRIVER_FOUND' | 'TRIP_COMPLETED';
