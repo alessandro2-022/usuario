@@ -7,7 +7,7 @@ import LocationSearch from './components/LocationSearch';
 import Chatbot from './components/Chatbot';
 import TripStatus from './components/TripStatus';
 import RatingModal from './components/RatingModal'; // Import the new RatingModal
-import EmergencyButton from './components/EmergencyButton'; // Import the new EmergencyButton
+// import EmergencyButton from './components/EmergencyButton'; // Removed EmergencyButton import
 import type { UserLocation, DriverInfo, TripState } from './types';
 import { geocodeAddress } from './services/geocodingService';
 
@@ -37,6 +37,7 @@ const App: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [geolocationError, setGeolocationError] = useState<string | null>(null); // New state for geolocation errors
   const [origin, setOrigin] = useState('Sua localização atual');
   const [destination, setDestination] = useState('');
   const [destinationLocation, setDestinationLocation] = useState<UserLocation | null>(null);
@@ -48,17 +49,40 @@ const App: React.FC = () => {
   const [showRatingModal, setShowRatingModal] = useState(false); // New state for rating modal
 
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setUserLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-      },
-      (error) => {
-        console.error("Error getting geolocation: ", error);
+    const getUserGeolocation = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setUserLocation({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            });
+            setGeolocationError(null); // Clear any previous error
+          },
+          (error) => {
+            let errorMessage = "Não foi possível obter sua localização.";
+            switch (error.code) {
+              case error.PERMISSION_DENIED:
+                errorMessage = "Permissão de localização negada. Funcionalidades do mapa podem ser limitadas.";
+                break;
+              case error.POSITION_UNAVAILABLE:
+                errorMessage = "Informações de localização indisponíveis.";
+                break;
+              case error.TIMEOUT:
+                errorMessage = "A requisição para obter a localização expirou.";
+                break;
+            }
+            console.error("Erro de geolocalização: ", error);
+            setGeolocationError(errorMessage);
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      } else {
+        setGeolocationError("Seu navegador não suporta geolocalização.");
       }
-    );
+    };
+
+    getUserGeolocation();
   }, []);
 
   // Debounced geocoding effect
@@ -247,10 +271,11 @@ const App: React.FC = () => {
     setHasSentArrivingNotification(false); // Reset
   };
 
-  const handleEmergencyClick = () => {
-    alert("Botão de Emergência Acionado!");
-    // In a real app, this would trigger emergency contacts or safety features.
-  };
+  // Removed handleEmergencyClick as the component is removed
+  // const handleEmergencyClick = () => {
+  //   alert("Botão de Emergência Acionado!");
+  //   // In a real app, this would trigger emergency contacts or safety features.
+  // };
 
   return (
     <div className="h-screen w-screen bg-gray-200 font-sans flex flex-col overflow-hidden relative">
@@ -262,6 +287,15 @@ const App: React.FC = () => {
       <SideDrawer isOpen={isDrawerOpen} onClose={toggleDrawer} />
       
       <main className="flex-1 relative">
+        {geolocationError && (
+          <div 
+            className="absolute top-0 left-0 right-0 bg-red-500 text-white p-2 text-center text-sm z-40 animate-fade-in"
+            role="alert"
+          >
+            {geolocationError}
+          </div>
+        )}
+
         <MapPlaceholder 
           userLocation={userLocation} 
           destinationLocation={destinationLocation} 
@@ -299,7 +333,8 @@ const App: React.FC = () => {
           <RatingModal driverName={driver.name} onRatingSubmit={handleRateDriver} />
         )}
 
-        <EmergencyButton onEmergencyClick={handleEmergencyClick} />
+        {/* Removed EmergencyButton */}
+        {/* <EmergencyButton onEmergencyClick={handleEmergencyClick} /> */}
       </main>
     </div>
   );
