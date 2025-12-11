@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import type { UserLocation } from '../types';
 
@@ -29,9 +30,12 @@ const MapView: React.FC<MapProps> = ({ userLocation, destinationLocation, driver
         zoomControl: false,
         attributionControl: false,
       });
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      
+      // Changed to CartoDB Positron (Light) for a cleaner, more professional look
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         maxZoom: 19,
-        attribution: '© OpenStreetMap contributors',
+        subdomains: 'abcd',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
       }).addTo(mapInstance.current);
     }
   }, []);
@@ -49,7 +53,14 @@ const MapView: React.FC<MapProps> = ({ userLocation, destinationLocation, driver
       if (userMarkerInstance.current) {
         userMarkerInstance.current.setLatLng(userLatLng);
       } else {
-        userMarkerInstance.current = L.marker(userLatLng).addTo(mapInstance.current);
+        // Create a custom pulsing blue dot for user location
+        const userIcon = L.divIcon({
+            className: 'css-icon',
+            html: '<div class="w-4 h-4 bg-goly-blue rounded-full border-2 border-white shadow-lg relative"><div class="absolute inset-0 bg-goly-blue rounded-full animate-ping opacity-75"></div></div>',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+        });
+        userMarkerInstance.current = L.marker(userLatLng, { icon: userIcon }).addTo(mapInstance.current);
       }
       userMarkerInstance.current.bindPopup("<b>Você está aqui!</b>");
     }
@@ -63,7 +74,7 @@ const MapView: React.FC<MapProps> = ({ userLocation, destinationLocation, driver
     if (destinationLocation) {
       const destLatLng: [number, number] = [destinationLocation.latitude, destinationLocation.longitude];
       const destIcon = new L.Icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-black.png', // Changed to black for contrast on light map
         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
         iconSize: [25, 41],
         iconAnchor: [12, 41],
@@ -87,10 +98,10 @@ const MapView: React.FC<MapProps> = ({ userLocation, destinationLocation, driver
     if (driverLocation) {
       const driverLatLng: [number, number] = [driverLocation.latitude, driverLocation.longitude];
       const carIcon = L.divIcon({
-          html: `<svg class="h-8 w-8 text-goly-blue" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>`,
+          html: `<svg class="h-10 w-10 text-goly-dark drop-shadow-lg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>`,
           className: 'bg-transparent border-0',
-          iconSize: [32, 32],
-          iconAnchor: [16, 16]
+          iconSize: [40, 40],
+          iconAnchor: [20, 20]
       });
 
       if (driverMarkerInstance.current) {
@@ -121,10 +132,11 @@ const MapView: React.FC<MapProps> = ({ userLocation, destinationLocation, driver
         const destLatLng: [number, number] = [destinationLocation.latitude, destinationLocation.longitude];
 
         // Draw driver to user route (dashed line)
-        driverToUserRoute.current = L.polyline([driverLatLng, userLatLng], {color: '#0D47A1', weight: 4, dashArray: '8, 8'}).addTo(mapInstance.current);
+        driverToUserRoute.current = L.polyline([driverLatLng, userLatLng], {color: '#555', weight: 4, dashArray: '10, 10', opacity: 0.7}).addTo(mapInstance.current);
         
         // Draw user to destination route (solid line)
-        userToDestinationRoute.current = L.polyline([userLatLng, destLatLng], {color: '#0D47A1', weight: 4}).addTo(mapInstance.current);
+        // Using Goly Blue for the main route
+        userToDestinationRoute.current = L.polyline([userLatLng, destLatLng], {color: '#007BFF', weight: 5, opacity: 0.9}).addTo(mapInstance.current);
     }
 
     // Adjust map bounds to fit all markers and route

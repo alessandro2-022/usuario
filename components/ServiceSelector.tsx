@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   ArrowRightIcon,
@@ -16,7 +17,8 @@ type ServiceType = 'car' | 'motorcycle' | 'pickup' | 'dropoff' | null;
 type PaymentMethod = 'creditCard' | 'pix' | 'golyBalance' | null;
 
 interface ServiceSelectorProps {
-    onServiceSelect: () => void;
+    onServiceSelect: (paymentMethod: PaymentMethod) => void;
+    estimatedPrice: number | null;
 }
 
 const getCategoryDisplayName = (category: ServiceCategory) => {
@@ -46,7 +48,7 @@ const getPaymentMethodDisplayName = (method: PaymentMethod) => {
     }
 };
 
-const ServiceSelector: React.FC<ServiceSelectorProps> = ({ onServiceSelect }) => {
+const ServiceSelector: React.FC<ServiceSelectorProps> = ({ onServiceSelect, estimatedPrice }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<ServiceCategory>(null);
     const [selectedServiceType, setSelectedServiceType] = useState<ServiceType>(null);
@@ -66,7 +68,7 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({ onServiceSelect }) =>
             setIsOpen(true);
         } else if (showSummary) {
             // If summary is shown, confirm the trip
-            onServiceSelect();
+            onServiceSelect(selectedPaymentMethod);
             resetSelections();
         } else if (selectedServiceType && selectedPaymentMethod) {
             // If service type and payment method are selected, show summary
@@ -91,6 +93,10 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({ onServiceSelect }) =>
         }
     };
 
+    const formatCurrency = (value: number) => {
+        return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    };
+
     const renderServiceSelection = () => {
         if (showSummary) {
             const categoryDisplay = getCategoryDisplayName(selectedCategory);
@@ -99,8 +105,14 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({ onServiceSelect }) =>
 
             return (
                 <div key="summary" className="flex flex-col items-center animate-fade-in w-full px-4">
-                    <h4 className="text-lg font-bold text-goly-dark mb-4">Revisar Seleção:</h4>
+                    <h4 className="text-lg font-bold text-goly-dark mb-4">Revisar e Pagar:</h4>
                     <div className="bg-gray-100 p-4 rounded-lg shadow-inner w-full max-w-xs space-y-3">
+                        {estimatedPrice !== null && (
+                            <div className="flex items-center justify-between text-goly-blue border-b border-gray-300 pb-2 mb-2">
+                                <span className="font-bold">Total Estimado:</span>
+                                <span className="font-extrabold text-xl">{formatCurrency(estimatedPrice)}</span>
+                            </div>
+                        )}
                         <div className="flex items-center text-goly-dark">
                             <span className="font-semibold mr-2">Categoria:</span>
                             {categoryDisplay.icon}
@@ -142,10 +154,12 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({ onServiceSelect }) =>
                     <button onClick={() => setSelectedServiceType('car')} className="flex flex-col items-center justify-center w-24 h-24 bg-white rounded-xl shadow-md hover:bg-gray-100 transition-transform transform hover:scale-105" aria-label="Corrida de Carro">
                         <CarIcon className="h-10 w-10 text-goly-blue" />
                         <span className="text-sm font-bold text-goly-dark mt-2">Carro</span>
+                        {estimatedPrice && <span className="text-xs text-green-600 font-bold mt-1">{formatCurrency(estimatedPrice)}</span>}
                     </button>
                     <button onClick={() => setSelectedServiceType('motorcycle')} className="flex flex-col items-center justify-center w-24 h-24 bg-white rounded-xl shadow-md hover:bg-gray-100 transition-transform transform hover:scale-105" aria-label="Corrida de Moto">
                         <MotorcycleIcon className="h-10 w-10 text-goly-blue" />
                         <span className="text-sm font-bold text-goly-dark mt-2">Moto</span>
+                        {estimatedPrice && <span className="text-xs text-green-600 font-bold mt-1">{formatCurrency(estimatedPrice * 0.8)}</span>}
                     </button>
                 </div>
             );
@@ -156,9 +170,11 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({ onServiceSelect }) =>
                 <div key="delivery-types" className="flex space-x-4 animate-fade-in">
                     <button onClick={() => setSelectedServiceType('pickup')} className="flex flex-col items-center justify-center w-24 h-24 bg-white rounded-xl shadow-md text-goly-blue hover:bg-gray-100 transition-transform transform hover:scale-105" aria-label="Entrega para Busca">
                         <span className="text-sm font-bold">BUSCA</span>
+                        {estimatedPrice && <span className="text-xs text-green-600 font-bold mt-1">{formatCurrency(estimatedPrice * 0.9)}</span>}
                     </button>
                     <button onClick={() => setSelectedServiceType('dropoff')} className="flex flex-col items-center justify-center w-24 h-24 bg-white rounded-xl shadow-md text-goly-blue hover:bg-gray-100 transition-transform transform hover:scale-105" aria-label="Entrega para Deixar">
                         <span className="text-sm font-bold">DEIXA</span>
+                        {estimatedPrice && <span className="text-xs text-green-600 font-bold mt-1">{formatCurrency(estimatedPrice * 0.9)}</span>}
                     </button>
                 </div>
             );
@@ -204,14 +220,14 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({ onServiceSelect }) =>
         if (!isOpen) {
             return (
                 <span className="flex items-center text-xl font-bold">
-                    ESCOLHER SERVIÇO
+                    {estimatedPrice ? `ESCOLHER (${formatCurrency(estimatedPrice)})` : 'ESCOLHER SERVIÇO'}
                     <ArrowRightIcon className="h-6 w-6 ml-3" />
                 </span>
             );
         } else if (showSummary) {
             return (
                 <span className="flex items-center text-xl font-bold">
-                    CONFIRMAR VIAGEM
+                    CONFIRMAR E PAGAR
                     <ArrowRightIcon className="h-6 w-6 ml-3" />
                 </span>
             );
@@ -254,8 +270,8 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({ onServiceSelect }) =>
             )}
             <button
                 onClick={handleMainButtonClick}
-                className={`w-72 h-16 bg-goly-yellow text-goly-dark rounded-xl flex items-center justify-center shadow-lg focus:outline-none focus:ring-2 focus:ring-goly-blue transition-all duration-300 transform hover:scale-105 
-                    ${isMainButtonDisabled() ? 'opacity-60 cursor-not-allowed' : 'hover:bg-yellow-500'}`}
+                className={`w-80 h-16 bg-goly-yellow text-goly-dark rounded-xl flex items-center justify-center shadow-lg focus:outline-none focus:ring-2 focus:ring-goly-blue transition-all duration-300 transform hover:scale-105 
+                    ${isMainButtonDisabled() ? 'opacity-60 cursor-not-allowed' : 'hover:bg-goly-yellow-dark'}`}
                 disabled={isMainButtonDisabled()}
             >
                 {getButtonText()}

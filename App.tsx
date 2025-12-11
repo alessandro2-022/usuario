@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import SideDrawer from './components/SideDrawer';
@@ -6,10 +7,16 @@ import ServiceSelector from './components/ServiceSelector';
 import LocationSearch from './components/LocationSearch';
 import Chatbot from './components/Chatbot';
 import TripStatus from './components/TripStatus';
-import RatingModal from './components/RatingModal'; // Import the new RatingModal
-// import EmergencyButton from './components/EmergencyButton'; // Removed EmergencyButton import
-import type { UserLocation, DriverInfo, TripState } from './types';
+import RatingModal from './components/RatingModal';
+import AdminDashboard from './components/AdminDashboard';
+import PixModal from './components/PixModal';
+import UserProfileModal from './components/UserProfileModal';
+import SettingsModal from './components/SettingsModal';
+import RideHistoryModal from './components/RideHistoryModal';
+import SupportModal from './components/SupportModal';
+import type { UserLocation, DriverInfo, TripState, UserProfile, RideHistoryItem } from './types';
 import { geocodeAddress } from './services/geocodingService';
+import { processPayment, createStaticPixQRCode, PixCharge } from './services/asaasService';
 
 // Helper function to calculate distance between two lat/lng points (Haversine formula)
 const calculateDistance = (loc1: UserLocation, loc2: UserLocation): number => {
@@ -25,29 +32,54 @@ const calculateDistance = (loc1: UserLocation, loc2: UserLocation): number => {
     return distance;
 };
 
-// Helper function to estimate travel time based on distance (simple linear model for simulation)
-const estimateTravelTimeMinutes = (distanceKm: number): number => {
-    // Assume average speed of 30 km/h = 0.5 km/min for simplicity
-    const speedKmPerMin = 0.5; 
-    return Math.max(1, Math.round(distanceKm / speedKmPerMin)); // Minimum 1 minute
+// Initial Empty User Data - Ready for Real Auth/Input
+const INITIAL_USER: UserProfile = {
+    name: "",
+    age: 0,
+    phone: "",
+    email: "",
+    address: "",
+    avatarUrl: "https://via.placeholder.com/200?text=Foto", // Placeholder generico
+    cpfCnpj: "",
+    mobilePhone: ""
 };
-
 
 const App: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [showAdminDashboard, setShowAdminDashboard] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [isProfileReadOnly, setIsProfileReadOnly] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  
+  // User Profile State
+  const [currentUser, setCurrentUser] = useState<UserProfile>(INITIAL_USER);
+
+  // Real Data States
+  const [rideHistory, setRideHistory] = useState<RideHistoryItem[]>([]); // Starts Empty
+
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-  const [geolocationError, setGeolocationError] = useState<string | null>(null); // New state for geolocation errors
+  const [geolocationError, setGeolocationError] = useState<string | null>(null);
   const [origin, setOrigin] = useState('Sua localização atual');
   const [destination, setDestination] = useState('');
   const [destinationLocation, setDestinationLocation] = useState<UserLocation | null>(null);
+  
+  // Trip Logic States
   const [tripState, setTripState] = useState<TripState>('IDLE');
-  const [driver, setDriver] = useState<DriverInfo | null>(null);
-  const [driverEta, setDriverEta] = useState<string | null>(null); // New state for driver ETA
-  const [driverDistance, setDriverDistance] = useState<string | null>(null); // New state for driver distance
-  const [hasSentArrivingNotification, setHasSentArrivingNotification] = useState(false);
-  const [showRatingModal, setShowRatingModal] = useState(false); // New state for rating modal
-
+  const [driver, setDriver] = useState<DriverInfo | null>(null); // Starts null, waits for backend
+  const [driverEta, setDriverEta] = useState<string | null>(null);
+  const [driverDistance, setDriverDistance] = useState<string | null>(null);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  
+  // Payment States
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [estimatedPrice, setEstimatedPrice] = useState<number | null>(null);
+  const [showPixModal, setShowPixModal] = useState(false);
+  const [pixData, setPixData] = useState<PixCharge | null>(null);
+  
+  // 1. Geolocation Setup
   useEffect(() => {
     const getUserGeolocation = () => {
       if (navigator.geolocation) {
@@ -57,19 +89,19 @@ const App: React.FC = () => {
               latitude: position.coords.latitude,
               longitude: position.coords.longitude,
             });
-            setGeolocationError(null); // Clear any previous error
+            setGeolocationError(null);
           },
           (error) => {
             let errorMessage = "Não foi possível obter sua localização.";
             switch (error.code) {
               case error.PERMISSION_DENIED:
-                errorMessage = "Permissão de localização negada. Funcionalidades do mapa podem ser limitadas.";
+                errorMessage = "Permissão de localização negada.";
                 break;
               case error.POSITION_UNAVAILABLE:
                 errorMessage = "Informações de localização indisponíveis.";
                 break;
               case error.TIMEOUT:
-                errorMessage = "A requisição para obter a localização expirou.";
+                errorMessage = "A requisição expirou.";
                 break;
             }
             console.error("Erro de geolocalização: ", error);
@@ -85,10 +117,11 @@ const App: React.FC = () => {
     getUserGeolocation();
   }, []);
 
-  // Debounced geocoding effect
+  // 2. Address Geocoding Logic
   useEffect(() => {
     if (destination.trim().length < 3) {
       setDestinationLocation(null);
+      setEstimatedPrice(null);
       return;
     }
 
@@ -97,185 +130,120 @@ const App: React.FC = () => {
         setDestinationLocation(location);
         if (!location) {
           console.warn(`Could not find location for: ${destination}`);
+          setEstimatedPrice(null);
         }
       });
-    }, 1000); // 1-second debounce after user stops typing
+    }, 1000);
 
     return () => {
       clearTimeout(handler);
     };
   }, [destination]);
 
-  // Effect to simulate real-time driver movement and trip completion
+  // 3. Price Calculation Logic
   useEffect(() => {
-    if (tripState !== 'DRIVER_FOUND' || !userLocation) {
-      // Clear ETA and distance when not in DRIVER_FOUND state
-      setDriverEta(null);
-      setDriverDistance(null);
-      return;
+    if (userLocation && destinationLocation) {
+        const dist = calculateDistance(userLocation, destinationLocation);
+        // Base R$ 5.00 + R$ 2.00 per KM
+        const price = 5.0 + (dist * 2.0);
+        setEstimatedPrice(parseFloat(price.toFixed(2)));
+    } else {
+        setEstimatedPrice(null);
     }
-    
-    let intervalId: number | null = window.setInterval(() => {
-      setDriver(currentDriver => {
-        if (!currentDriver) {
-          // If driver somehow becomes null while interval is active, stop it.
-          if (intervalId) {
-            clearInterval(intervalId);
-            intervalId = null;
-          }
-          return null;
-        }
-
-        const { latitude: driverLat, longitude: driverLng } = currentDriver.location;
-        const { latitude: userLat, longitude: userLng } = userLocation;
-
-        const distance = calculateDistance(currentDriver.location, userLocation);
-        
-        // Update ETA and distance dynamically
-        const etaMinutes = estimateTravelTimeMinutes(distance);
-        setDriverEta(`${etaMinutes} min`);
-        setDriverDistance(`${distance.toFixed(1)} km`);
-
-        // Stop moving when the driver is very close (arrived)
-        if (distance < 0.05) { // Threshold for "arrival"
-            if (intervalId) {
-                clearInterval(intervalId);
-                intervalId = null;
-            }
-            setTripState('TRIP_COMPLETED'); // Transition to completed state
-            // Keep currentDriver for the rating modal to access driver's name
-            return currentDriver;
-        }
-
-        // Send "arriving soon" notification once
-        if (distance < 0.5 && !hasSentArrivingNotification) { // Driver within 0.5 km
-             if (Notification.permission === 'granted') {
-                new Notification('Seu motorista está chegando!', {
-                    body: 'Prepare-se para encontrar seu motorista em breve.',
-                    lang: 'pt-BR'
-                });
-            }
-            setHasSentArrivingNotification(true);
-        }
-        
-        const stepFactor = 0.005; // Smaller step factor for smoother simulation
-        const bearing = Math.atan2(userLng - driverLng, userLat - driverLat);
-        const newLat = driverLat + Math.cos(bearing) * stepFactor;
-        const newLng = driverLng + Math.sin(bearing) * stepFactor;
-
-        return {
-          ...currentDriver,
-          location: {
-            latitude: newLat,
-            longitude: newLng,
-          },
-        };
-      });
-    }, 2000);
-
-    return () => {
-        if (intervalId) {
-            clearInterval(intervalId);
-        }
-    };
-  }, [tripState, userLocation, hasSentArrivingNotification]);
-
-  // Effect to show rating modal after trip completion
-  useEffect(() => {
-    if (tripState === 'TRIP_COMPLETED') {
-      // Small delay to allow UI to settle before showing modal
-      const timer = setTimeout(() => {
-        setShowRatingModal(true);
-        // Clear driver info and destination after the rating modal is shown
-        // This resets the map and state for a new trip
-        setDestination('');
-        setDestinationLocation(null);
-      }, 1500); // 1.5 seconds delay
-
-      return () => clearTimeout(timer); // Cleanup timeout
-    }
-  }, [tripState]);
+  }, [userLocation, destinationLocation]);
 
 
   const toggleDrawer = () => setIsDrawerOpen(!isDrawerOpen);
   const toggleChat = () => setIsChatOpen(!isChatOpen);
+  const openAdminDashboard = () => setShowAdminDashboard(true);
+  
+  const openProfileModal = (readOnly: boolean = false) => {
+      setIsProfileReadOnly(readOnly);
+      setShowProfileModal(true);
+  };
+  
+  const openSettingsModal = () => setShowSettingsModal(true);
+  const openHistoryModal = () => setShowHistoryModal(true);
+  const openSupportModal = () => setShowSupportModal(true);
 
-  const handleServiceSelect = async () => {
-    if (!userLocation || !destinationLocation) {
+  const handleUpdateProfile = (updatedUser: UserProfile) => {
+    setCurrentUser(updatedUser);
+  };
+
+  const startTripSearch = async () => {
+       if ('Notification' in window && Notification.permission !== 'granted') {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            console.warn('Permissão para notificações negada.');
+        }
+    }
+
+    setTripState('SEARCHING');
+    // HERE: Socket.emit('request_ride', ...) would happen in a real app
+    // The app now waits indefinitely for a driver to accept via backend push
+  }
+
+  const handleServiceSelect = async (paymentMethod: string | null) => {
+    if (!userLocation || !destinationLocation || !estimatedPrice) {
         alert("Por favor, selecione seu destino para iniciar a busca.");
         return;
     }
 
-    // Request notification permission if not already granted
-    if ('Notification' in window && Notification.permission !== 'granted') {
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-            console.warn('Permissão para notificações negada. Você não receberá atualizações da viagem.');
+    // Handle PIX separately
+    if (paymentMethod === 'pix') {
+        setIsProcessingPayment(true);
+        try {
+            const pix = await createStaticPixQRCode(estimatedPrice, currentUser);
+            setPixData(pix);
+            setIsProcessingPayment(false);
+            setShowPixModal(true);
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao gerar Pix. Complete seu cadastro com CPF/CNPJ.");
+            setIsProcessingPayment(false);
         }
+        return;
     }
 
-    setHasSentArrivingNotification(false); // Reset for new trip
-    setTripState('SEARCHING');
-
-    // Simulate finding a driver after 5 seconds
-    setTimeout(() => {
-      const mockDriver: DriverInfo = {
-        name: 'Carlos Silva',
-        carModel: 'Chevrolet Onix - Prata',
-        licensePlate: 'BRA-1234',
-        avatarUrl: 'https://i.pravatar.cc/150?img=68',
-        location: {
-            // Driver starts a bit away from userLocation
-            latitude: userLocation.latitude + 0.015,
-            longitude: userLocation.longitude + 0.015
-        }
-      };
-      setDriver(mockDriver);
-      setTripState('DRIVER_FOUND');
-
-      // Calculate initial ETA and distance
-      const initialDistance = calculateDistance(mockDriver.location, userLocation);
-      const initialEta = estimateTravelTimeMinutes(initialDistance);
-      setDriverEta(`${initialEta} min`);
-      setDriverDistance(`${initialDistance.toFixed(1)} km`);
-
-
-      // Send "Driver Found" notification
-      if (Notification.permission === 'granted') {
-        new Notification('Seu motorista foi encontrado!', {
-          body: `${mockDriver.name} está a caminho em um ${mockDriver.carModel}. Chega em ${initialEta} min.`,
-          lang: 'pt-BR'
-        });
-      }
-    }, 5000);
+    // Process Credit Card / Balance
+    setIsProcessingPayment(true);
+    try {
+        await processPayment(estimatedPrice, paymentMethod || 'creditCard', currentUser);
+        setIsProcessingPayment(false);
+        startTripSearch();
+    } catch (error) {
+        console.error(error);
+        alert("Erro ao processar pagamento. Verifique seus dados.");
+        setIsProcessingPayment(false);
+    }
   };
+
+  const handlePixConfirmed = async () => {
+    setShowPixModal(false);
+    startTripSearch();
+  };
+
 
   const handleCancelTrip = () => {
     setTripState('IDLE');
     setDriver(null);
-    setDriverEta(null); // Clear ETA
-    setDriverDistance(null); // Clear Distance
-    setHasSentArrivingNotification(false);
-    // Clear destination if trip is cancelled
+    setDriverEta(null); 
+    setDriverDistance(null); 
     setDestination('');
     setDestinationLocation(null);
+    setEstimatedPrice(null);
+    // HERE: Socket.emit('cancel_ride') would happen
   }
 
   const handleRateDriver = (rating: number | null, feedback: string) => {
     console.log("Driver rated:", rating, "Feedback:", feedback);
+    // HERE: API call to submit rating
     setShowRatingModal(false);
-    setTripState('IDLE'); // Reset to idle after rating/skipping
-    setDriver(null); // Clear driver info
+    setTripState('IDLE'); 
+    setDriver(null); 
     setDriverEta(null);
     setDriverDistance(null);
-    setHasSentArrivingNotification(false); // Reset
   };
-
-  // Removed handleEmergencyClick as the component is removed
-  // const handleEmergencyClick = () => {
-  //   alert("Botão de Emergência Acionado!");
-  //   // In a real app, this would trigger emergency contacts or safety features.
-  // };
 
   return (
     <div className="h-screen w-screen bg-gray-200 font-sans flex flex-col overflow-hidden relative">
@@ -284,26 +252,32 @@ const App: React.FC = () => {
         onChatClick={toggleChat} 
         tripState={tripState}
       />
-      <SideDrawer isOpen={isDrawerOpen} onClose={toggleDrawer} />
+      <SideDrawer 
+        isOpen={isDrawerOpen} 
+        onClose={toggleDrawer} 
+        onOpenAdmin={openAdminDashboard}
+        onOpenProfile={openProfileModal}
+        onOpenSettings={openSettingsModal}
+        onOpenHistory={openHistoryModal}
+        onOpenSupport={openSupportModal}
+      />
       
       <main className="flex-1 relative">
-        {geolocationError && (
-          <div 
-            className="absolute top-0 left-0 right-0 bg-red-500 text-white p-2 text-center text-sm z-40 animate-fade-in"
-            role="alert"
-          >
-            {geolocationError}
-          </div>
+        {isProcessingPayment && (
+            <div className="absolute inset-0 z-50 bg-black/70 flex flex-col items-center justify-center text-white backdrop-blur-sm animate-fade-in">
+                <div className="w-16 h-16 border-4 border-goly-yellow border-t-transparent rounded-full animate-spin mb-4"></div>
+                <h2 className="text-2xl font-bold">Processando Pagamento...</h2>
+                <p className="text-goly-blue-light mt-2">Conectando Gateway Asaas</p>
+            </div>
         )}
 
         <MapPlaceholder 
           userLocation={userLocation} 
           destinationLocation={destinationLocation} 
-          // Only pass driver location if trip is active and driver is found
           driverLocation={tripState === 'DRIVER_FOUND' ? driver?.location || null : null}
         />
         
-        {tripState === 'IDLE' && !showRatingModal && ( // Only show service selector and location search when IDLE and no rating modal
+        {tripState === 'IDLE' && !showRatingModal && !isProcessingPayment && ( 
           <>
             <LocationSearch
               origin={origin}
@@ -311,18 +285,22 @@ const App: React.FC = () => {
               destination={destination}
               setDestination={setDestination}
             />
-            {destination && <ServiceSelector onServiceSelect={handleServiceSelect} />}
+            {destination && <ServiceSelector onServiceSelect={handleServiceSelect} estimatedPrice={estimatedPrice} />}
           </>
         )}
 
-        {/* Show trip status if not idle and not completed */}
+        {/* 
+            This view now waits purely for state updates.
+            In a real scenario, a WebSocket listener in useEffect would call 
+            setDriver() and setTripState('DRIVER_FOUND') when a driver accepts.
+        */}
         {(tripState === 'SEARCHING' || tripState === 'DRIVER_FOUND') && 
           <TripStatus 
             state={tripState} 
             driver={driver} 
-            eta={driverEta} // Pass ETA
-            distance={driverDistance} // Pass distance
-            destinationLocation={destinationLocation} // Pass destination location for route on map
+            eta={driverEta} 
+            distance={driverDistance} 
+            destinationLocation={destinationLocation} 
             onCancel={handleCancelTrip} 
           />
         }
@@ -333,8 +311,33 @@ const App: React.FC = () => {
           <RatingModal driverName={driver.name} onRatingSubmit={handleRateDriver} />
         )}
 
-        {/* Removed EmergencyButton */}
-        {/* <EmergencyButton onEmergencyClick={handleEmergencyClick} /> */}
+        <AdminDashboard isOpen={showAdminDashboard} onClose={() => setShowAdminDashboard(false)} />
+        
+        <UserProfileModal 
+            isOpen={showProfileModal} 
+            onClose={() => setShowProfileModal(false)} 
+            user={currentUser}
+            onUpdateProfile={handleUpdateProfile}
+            readOnly={isProfileReadOnly}
+        />
+
+        <SettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
+
+        <RideHistoryModal 
+            isOpen={showHistoryModal} 
+            onClose={() => setShowHistoryModal(false)} 
+            history={rideHistory} 
+        />
+
+        <SupportModal isOpen={showSupportModal} onClose={() => setShowSupportModal(false)} />
+
+        {showPixModal && (
+            <PixModal 
+                pixData={pixData} 
+                onConfirm={handlePixConfirmed} 
+                onCancel={() => setShowPixModal(false)} 
+            />
+        )}
       </main>
     </div>
   );

@@ -58,7 +58,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, userLocation }) => {
         {/* Header */}
         <header className="bg-goly-blue text-white p-4 flex justify-between items-center rounded-t-lg md:rounded-t-lg">
           <h3 className="text-xl font-bold">Goly Assistente</h3>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-blue-800">
+          <button onClick={onClose} className="p-1 rounded-full hover:bg-goly-blue-dark">
             <CloseIcon className="h-6 w-6" />
           </button>
         </header>
@@ -75,7 +75,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, userLocation }) => {
                     <ul className="list-disc list-inside text-xs">
                       {msg.sources.map((source, index) => (
                         <li key={index}>
-                          <a href={source.uri} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                          <a href={source.uri} target="_blank" rel="noopener noreferrer" className="text-goly-blue hover:underline">
                             {source.title}
                           </a>
                         </li>
@@ -117,7 +117,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, userLocation }) => {
                     placeholder="Pergunte algo..."
                     className="flex-1 p-3 border rounded-full focus:outline-none focus:ring-2 focus:ring-goly-blue"
                 />
-                <button type="submit" disabled={isLoading} className="bg-goly-yellow text-goly-dark p-3 rounded-full hover:bg-yellow-500 disabled:bg-gray-300">
+                <button type="submit" disabled={isLoading} className="bg-goly-yellow text-goly-dark p-3 rounded-full hover:bg-goly-yellow-dark disabled:bg-gray-300">
                     <SendIcon className="h-6 w-6" />
                 </button>
             </form>

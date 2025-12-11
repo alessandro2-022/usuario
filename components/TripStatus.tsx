@@ -58,7 +58,7 @@ const DriverFoundView: React.FC<DriverFoundViewProps> = ({ driver, eta, distance
             <div className="flex space-x-4 mt-6 w-full">
                 <button 
                     onClick={handleCallDriver}
-                    className="flex-1 bg-goly-blue text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-800 transition-colors"
+                    className="flex-1 bg-goly-blue text-white font-bold py-3 px-6 rounded-lg hover:bg-goly-blue-dark transition-colors"
                     aria-label={`Ligar para o motorista ${driver.name}`}
                 >
                     Ligar

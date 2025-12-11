@@ -19,7 +19,7 @@ const LocationSearch: React.FC<LocationSearchProps> = ({ origin, setOrigin, dest
           value={origin}
           onChange={(e) => setOrigin(e.target.value)}
           placeholder="Local de partida"
-          className="w-full bg-gray-100 p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-goly-blue text-black"
+          className="w-full bg-gray-100 p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-goly-blue text-goly-dark"
         />
       </div>
 
@@ -34,7 +34,7 @@ const LocationSearch: React.FC<LocationSearchProps> = ({ origin, setOrigin, dest
           value={destination}
           onChange={(e) => setDestination(e.target.value)}
           placeholder="Para onde vamos?"
-          className="w-full bg-transparent p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-goly-yellow text-black"
+          className="w-full bg-transparent p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-goly-yellow text-goly-dark"
           autoFocus
         />
       </div>

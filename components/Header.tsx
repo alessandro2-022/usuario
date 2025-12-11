@@ -12,7 +12,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onChatClick, tripState }) 
   return (
     <header className="bg-goly-blue text-white shadow-md p-4 flex items-center justify-between z-30">
       <div className="flex items-center space-x-3">
-        <button onClick={onMenuClick} className="p-2 rounded-full hover:bg-blue-800 transition-colors">
+        <button onClick={onMenuClick} className="p-2 rounded-full hover:bg-goly-blue-dark transition-colors">
           <MenuIcon className="h-6 w-6" />
         </button>
         <div className="flex items-end">
@@ -24,7 +24,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onChatClick, tripState }) 
       {tripState === 'IDLE' && (
         <button 
           onClick={onChatClick} 
-          className="p-2 rounded-full hover:bg-blue-800 transition-colors"
+          className="p-2 rounded-full hover:bg-goly-blue-dark transition-colors"
           aria-label="Open Chat Assistant"
         >
           <ChatIcon className="h-6 w-6" />

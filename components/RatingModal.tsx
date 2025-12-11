@@ -68,7 +68,7 @@ const RatingModal: React.FC<RatingModalProps> = ({ driverName, onRatingSubmit })
           onClick={handleSubmit}
           disabled={rating === null} // Disable submit if no rating is selected
           className={`flex-1 bg-goly-blue text-white font-bold py-3 px-6 rounded-lg transition-colors ${
-            rating === null ? 'opacity-60 cursor-not-allowed' : 'hover:bg-blue-800'
+            rating === null ? 'opacity-60 cursor-not-allowed' : 'hover:bg-goly-blue-dark'
           }`}
           aria-label="Enviar avaliação"
         >
